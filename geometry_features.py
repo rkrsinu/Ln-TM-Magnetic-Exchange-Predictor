@@ -25,32 +25,87 @@ def dihedral(p0, p1, p2, p3):
     w = b2 - np.dot(b2, b1) * b1
     return np.degrees(np.arctan2(np.dot(np.cross(b1, v), w), np.dot(v, w)))
 
+# ---------- periodic table ----------
+symbol_to_Z = {
+'H':1,'He':2,'Li':3,'Be':4,'B':5,'C':6,'N':7,'O':8,'F':9,'Ne':10,
+'Na':11,'Mg':12,'Al':13,'Si':14,'P':15,'S':16,'Cl':17,'Ar':18,
+'K':19,'Ca':20,'Sc':21,'Ti':22,'V':23,'Cr':24,'Mn':25,'Fe':26,
+'Co':27,'Ni':28,'Cu':29,'Zn':30,'Ga':31,'Ge':32,'As':33,'Se':34,
+'Br':35,'Kr':36,'Rb':37,'Sr':38,'Y':39,'Zr':40,'Nb':41,'Mo':42,
+'Tc':43,'Ru':44,'Rh':45,'Pd':46,'Ag':47,'Cd':48,'In':49,'Sn':50,
+'Sb':51,'Te':52,'I':53,'Xe':54,'Cs':55,'Ba':56,
+'La':57,'Ce':58,'Pr':59,'Nd':60,'Pm':61,'Sm':62,'Eu':63,'Gd':64,
+'Tb':65,'Dy':66,'Ho':67,'Er':68,'Tm':69,'Yb':70,'Lu':71,
+'Hf':72,'Ta':73,'W':74,'Re':75,'Os':76,'Ir':77,'Pt':78,'Au':79,'Hg':80
+}
+
 # ---------- constants ----------
 lanthanides = set(range(57, 72))
 transition_metals = (
-    set(range(21, 31)) | set(range(39, 49)) | set(range(72, 81))
+    set(range(21, 31)) |
+    set(range(39, 49)) |
+    set(range(72, 81))
 )
 
-# Spin values (high-spin, typical oxidation states)
 spin_map = {
-    23: 1.5,  # V
-    24: 2.0,  # Cr
-    25: 2.5,  # Mn
-    26: 2.0,  # Fe
-    27: 1.5,  # Co
-    28: 1.0,  # Ni
-    29: 0.5,  # Cu
-    30: 0.0   # Zn (diamagnetic)
+    23: 1.5,
+    24: 2.0,
+    25: 2.5,
+    26: 2.0,
+    27: 1.5,
+    28: 1.0,
+    29: 0.5,
+    30: 0.0
 }
+
+# ---------- XYZ reader ----------
+def read_xyz(xyz_file):
+
+    atoms = []
+
+    with open(xyz_file) as f:
+        lines = [l.strip() for l in f if l.strip()]
+
+    # detect XYZ header
+    start = 0
+    try:
+        int(lines[0])
+        start = 2
+    except:
+        start = 0
+
+    idx = 1
+    for line in lines[start:]:
+
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+
+        atom = parts[0]
+
+        # atomic number
+        if atom.isdigit():
+            Z = int(atom)
+
+        # atomic symbol
+        else:
+            atom = atom.capitalize()
+            if atom not in symbol_to_Z:
+                raise ValueError(f"Unknown element symbol: {atom}")
+            Z = symbol_to_Z[atom]
+
+        x, y, z = map(float, parts[1:4])
+
+        atoms.append((idx, Z, np.array([x, y, z])))
+        idx += 1
+
+    return atoms
+
 
 # ---------- feature extractor ----------
 def extract_features(xyz_file, ln_index=None, tm_index=None):
 
-    atoms = []
-    with open(xyz_file) as f:
-        for i, line in enumerate(f):
-            Z, x, y, z = line.split()
-            atoms.append((i + 1, int(Z), np.array([float(x), float(y), float(z)])))
+    atoms = read_xyz(xyz_file)
 
     Ln_atoms = [a for a in atoms if a[1] in lanthanides]
     Tm_atoms = [a for a in atoms if a[1] in transition_metals]
@@ -73,50 +128,56 @@ def extract_features(xyz_file, ln_index=None, tm_index=None):
             "Please specify the TM atom index."
         )
 
-    # Select Ln and TM
     Ln = next(a for a in Ln_atoms if a[0] == ln_index) if ln_index else Ln_atoms[0]
     Tm = next(a for a in Tm_atoms if a[0] == tm_index) if tm_index else Tm_atoms[0]
 
-    # Zn safeguard
     if Tm[1] == 30:
         raise ValueError(
             "Zn(II) is diamagnetic (S = 0). "
             "No magnetic exchange coupling is expected."
         )
 
-    # Oxygen atoms
     O_atoms = [a for a in atoms if a[1] == 8]
+
     if len(O_atoms) < 2:
         raise ValueError("At least two oxygen atoms are required.")
 
-    # Two closest bridging oxygens
     oxy = sorted(
         [(dist(Ln[2], o[2]) + dist(Tm[2], o[2]), o) for o in O_atoms]
     )[:2]
 
     O1, O2 = oxy[0][1][2], oxy[1][1][2]
 
-    # Nearest heavy atoms for torsion
     def nearest_heavy(Ocoord):
+
         candidates = []
+
         for _, Z, c in atoms:
             if Z not in lanthanides and Z not in transition_metals and Z != 8:
                 candidates.append((dist(Ocoord, c), c))
+
         if not candidates:
             raise ValueError("No suitable atoms found for torsion calculation.")
+
         return min(candidates)[1]
 
     C1 = nearest_heavy(O1)
     C2 = nearest_heavy(O2)
 
-    # Geometry
     LnTm = dist(Ln[2], Tm[2])
+
     LnO = sorted([dist(Ln[2], O1), dist(Ln[2], O2)])
     TmO = sorted([dist(Tm[2], O1), dist(Tm[2], O2)])
-    LnOTm = sorted([angle(Ln[2], O1, Tm[2]), angle(Ln[2], O2, Tm[2])])
+
+    LnOTm = sorted([
+        angle(Ln[2], O1, Tm[2]),
+        angle(Ln[2], O2, Tm[2])
+    ])
 
     X = midpoint(O1, O2)
+
     LnXTm = angle(Ln[2], X, Tm[2])
+
     torsion = abs(dihedral(C1, O1, O2, C2))
 
     return pd.DataFrame([{
