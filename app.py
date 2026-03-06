@@ -15,11 +15,6 @@ st.title("🔬 Ln–TM Magnetic Exchange Predictor")
 st.markdown("""
 Upload a **Cartesian XYZ file**.
 
-Accepted formats:
-• Atomic **symbols** or **atomic numbers**  
-• Standard **XYZ files with header**  
-• Plain coordinate files without header  
-
 If **multiple Ln or TM atoms** are present, specify the atom indices.
 
 **Zn(II)** systems are automatically detected as **diamagnetic**.
@@ -99,4 +94,5 @@ st.caption(
     "Random Forest model trained on geometry-based descriptors. "
     "For research use only."
 )
+
 
