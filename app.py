@@ -3,33 +3,51 @@ import joblib
 import pandas as pd
 from geometry_features import extract_features
 
+
 # ---------------- Page setup ----------------
 st.set_page_config(
-    page_title="Ln–TM Exchange Predictor",
+    page_title="Ln–TM Magnetic Exchange Predictor",
     layout="centered"
 )
 
 st.title("🔬 Ln–TM Magnetic Exchange Predictor")
 
 st.markdown("""
-Upload a **Cartesian XYZ file** (atomic numbers only, no header).
+Upload a **Cartesian XYZ file**.
 
-- If **multiple Ln or TM atoms** are present, specify the atom indices.
-- **Zn(II)** systems are automatically detected as **diamagnetic**.
+Accepted formats:
+• Atomic **symbols** or **atomic numbers**  
+• Standard **XYZ files with header**  
+• Plain coordinate files without header  
+
+Example:
+
+Dy 0.0 0.0 0.0  
+Fe 2.0 0.0 0.0  
+O  1.0 0.0 0.0  
+O  1.0 1.0 0.0  
+
+If **multiple Ln or TM atoms** are present, specify the atom indices.
+
+**Zn(II)** systems are automatically detected as **diamagnetic**.
 """)
 
-# ---------------- Load model ----------------
+
+# ---------------- Load ML model ----------------
 @st.cache_resource
 def load_model():
     return joblib.load("rf_model.joblib")
 
+
 model = load_model()
+
 
 # ---------------- File upload ----------------
 uploaded_file = st.file_uploader(
     "Upload XYZ file",
     type=["xyz"]
 )
+
 
 # ---------------- Optional indices ----------------
 st.markdown("### Optional: Metal indices (for multinuclear systems)")
@@ -48,22 +66,29 @@ tm_index = st.number_input(
     value=None
 )
 
+
 # ---------------- Prediction ----------------
 if uploaded_file is not None:
+
+    # Save uploaded file temporarily
     with open("temp.xyz", "wb") as f:
         f.write(uploaded_file.getbuffer())
 
     try:
+
+        # Extract geometric descriptors
         X_pred = extract_features(
             "temp.xyz",
             ln_index=ln_index,
             tm_index=tm_index
         )
 
+        # Predict J
         J_pred = model.predict(X_pred)[0]
 
         st.success(f"✅ Predicted exchange coupling **J = {J_pred:.3f} cm⁻¹**")
 
+        # Show descriptors
         with st.expander("Show extracted geometric descriptors"):
             st.dataframe(X_pred)
 
@@ -74,6 +99,8 @@ if uploaded_file is not None:
         st.error("❌ Error processing XYZ file")
         st.exception(e)
 
+
+# ---------------- Footer ----------------
 st.markdown("---")
 st.caption(
     "Random Forest model trained on geometry-based descriptors. "
