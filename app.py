@@ -20,13 +20,6 @@ Accepted formats:
 • Standard **XYZ files with header**  
 • Plain coordinate files without header  
 
-Example:
-
-Dy 0.0 0.0 0.0  
-Fe 2.0 0.0 0.0  
-O  1.0 0.0 0.0  
-O  1.0 1.0 0.0  
-
 If **multiple Ln or TM atoms** are present, specify the atom indices.
 
 **Zn(II)** systems are automatically detected as **diamagnetic**.
@@ -106,3 +99,4 @@ st.caption(
     "Random Forest model trained on geometry-based descriptors. "
     "For research use only."
 )
+
