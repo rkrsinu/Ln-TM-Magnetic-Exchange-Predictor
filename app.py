@@ -6,21 +6,16 @@ from geometry_features import extract_features
 
 # ---------------- Page setup ----------------
 st.set_page_config(
-    page_title="Ln–TM Magnetic Exchange Predictor",
+    page_title="3d–Gd Magnetic Exchange Predictor",
     layout="centered"
 )
 
-st.title("🔬 Ln–TM Magnetic Exchange Predictor")
+st.title("🔬 3d–Gd Magnetic Exchange Predictor")
 
 st.markdown("""
 Upload a **Cartesian XYZ file**.
 
-The model predicts **J using the Ruiz definition** and automatically
-converts it to **Noodleman and Yamaguchi conventions**.
-
-System assumption:
-- **Ln = Gd³⁺ (S = 7/2 fixed)**
-- **3d metal spin extracted automatically**
+This tool calculates magnetic exchange coupling **J for 3d–Gd systems**.
 """)
 
 
@@ -28,7 +23,6 @@ System assumption:
 @st.cache_resource
 def load_model():
     return joblib.load("rf_model.joblib")
-
 
 model = load_model()
 
@@ -73,7 +67,7 @@ if uploaded_file is not None:
             tm_index=tm_index
         )
 
-        # Predict J (Ruiz)
+        # Ruiz prediction from ML model
         J_ruiz = model.predict(X_pred)[0]
 
         # ---------------- Spin information ----------------
@@ -86,11 +80,11 @@ if uploaded_file is not None:
         S_HS = S1 + S2
         S_BS = abs(S1 - S2)
 
-        # ---------------- Calculate EBS - EHS ----------------
+        # ---------------- Calculate EBS − EHS ----------------
         denom_ruiz = 2*S1*S2 + S2
         deltaE = J_ruiz * denom_ruiz
 
-        # ---------------- Convert J ----------------
+        # ---------------- Convert to other J ----------------
         J_noodle = deltaE / (S_HS*(S_HS+1))
 
         J_yama = (2*deltaE) / (
@@ -126,8 +120,9 @@ if uploaded_file is not None:
 
         st.table(results)
 
+
         # ---------------- Show formulas ----------------
-        st.markdown("### Formulas Used")
+        st.markdown("### Formulas used")
 
         st.markdown("""
 **Ruiz**
@@ -151,13 +146,14 @@ where
 ⟨S²⟩ = S(S+1)
 """)
 
-        # ---------------- Show calculated parameters ----------------
+
+        # ---------------- Spin information ----------------
         with st.expander("Spin information"):
 
             spin_table = pd.DataFrame({
                 "Parameter":[
                     "Spin(Gd)",
-                    "Spin(TM)",
+                    "Spin(3d metal)",
                     "S_HS",
                     "S_BS",
                     "EBS − EHS"
@@ -173,9 +169,11 @@ where
 
             st.table(spin_table)
 
+
         # ---------------- Show descriptors ----------------
         with st.expander("Show extracted geometric descriptors"):
             st.dataframe(X_pred)
+
 
     except ValueError as e:
         st.warning(f"⚠️ {str(e)}")
@@ -188,7 +186,5 @@ where
 # ---------------- Footer ----------------
 st.markdown("---")
 st.caption(
-    "Random Forest model trained on geometry-based descriptors. "
-    "Model predicts J using the Ruiz definition and converts "
-    "to Noodleman and Yamaguchi conventions."
+    "Machine learning model for predicting magnetic exchange coupling in 3d–Gd systems."
 )
