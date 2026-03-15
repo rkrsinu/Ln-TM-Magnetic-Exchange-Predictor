@@ -24,6 +24,7 @@ This tool calculates magnetic exchange coupling **J for 3d–Gd systems**.
 def load_model():
     return joblib.load("rf_model.joblib")
 
+
 model = load_model()
 
 
@@ -67,10 +68,10 @@ if uploaded_file is not None:
             tm_index=tm_index
         )
 
-        # Ruiz prediction from ML model
+        # Predict Ruiz J
         J_ruiz = model.predict(X_pred)[0]
 
-        # ---------------- Spin information ----------------
+        # ---------------- Spins ----------------
         S_tm = float(X_pred["Spin"].values[0])
         S_gd = 3.5
 
@@ -80,11 +81,11 @@ if uploaded_file is not None:
         S_HS = S1 + S2
         S_BS = abs(S1 - S2)
 
-        # ---------------- Calculate EBS − EHS ----------------
+        # ---------------- Energy difference ----------------
         denom_ruiz = 2*S1*S2 + S2
         deltaE = J_ruiz * denom_ruiz
 
-        # ---------------- Convert to other J ----------------
+        # ---------------- Convert J ----------------
         J_noodle = deltaE / (S_HS*(S_HS+1))
 
         J_yama = (2*deltaE) / (
@@ -104,61 +105,46 @@ if uploaded_file is not None:
 
         # ---------------- Results table ----------------
         results = pd.DataFrame({
-            "Method":[
-                "Ruiz",
-                "Noodleman",
-                "Yamaguchi"
-            ],
-            "J (cm⁻¹)":[
+            "Method": ["Ruiz", "Noodleman", "Yamaguchi"],
+            "J (cm⁻¹)": [
                 f"{J_ruiz:.3f} ± {err_ruiz:.2f}",
                 f"{J_noodle:.3f} ± {err_noodle:.2f}",
                 f"{J_yama:.3f} ± {err_yama:.2f}"
             ]
         })
 
-        st.success("✅ Exchange coupling results")
+        st.success("Exchange coupling results")
 
         st.table(results)
 
-
-        # ---------------- Show formulas ----------------
+        # ---------------- Formulas ----------------
         st.markdown("### Formulas used")
 
-        st.markdown("""
-**Ruiz**
+        st.markdown("**Ruiz**")
+        st.latex(r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}")
 
-J = (EBS − EHS) / (2S₁S₂ + S₂)
+        st.markdown("**Noodleman**")
+        st.latex(r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}")
 
----
+        st.markdown("**Yamaguchi**")
+        st.latex(r"J = \frac{2(E_{BS}-E_{HS})}{\langle S^2\rangle_{HS} - \langle S^2\rangle_{BS}}")
 
-**Noodleman**
+        st.markdown("where")
 
-J = (EBS − EHS) / [S_HS(S_HS + 1)]
-
----
-
-**Yamaguchi**
-
-J = 2(EBS − EHS) / (⟨S²⟩HS − ⟨S²⟩BS)
-
-where
-
-⟨S²⟩ = S(S+1)
-""")
-
+        st.latex(r"\langle S^2\rangle = S(S+1)")
 
         # ---------------- Spin information ----------------
         with st.expander("Spin information"):
 
             spin_table = pd.DataFrame({
-                "Parameter":[
+                "Parameter": [
                     "Spin(Gd)",
                     "Spin(3d metal)",
                     "S_HS",
                     "S_BS",
                     "EBS − EHS"
                 ],
-                "Value":[
+                "Value": [
                     S_gd,
                     S_tm,
                     S_HS,
@@ -169,17 +155,15 @@ where
 
             st.table(spin_table)
 
-
         # ---------------- Show descriptors ----------------
         with st.expander("Show extracted geometric descriptors"):
             st.dataframe(X_pred)
-
 
     except ValueError as e:
         st.warning(f"⚠️ {str(e)}")
 
     except Exception as e:
-        st.error("❌ Error processing XYZ file")
+        st.error("Error processing XYZ file")
         st.exception(e)
 
 
