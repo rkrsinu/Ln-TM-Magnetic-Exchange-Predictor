@@ -88,7 +88,7 @@ if uploaded_file is not None:
         # ---------------- Convert J ----------------
         J_noodle = deltaE / (S_HS*(S_HS+1))
 
-        J_yama = (deltaE) / (
+        J_yama = deltaE / (
             S_HS*(S_HS+1) - S_BS*(S_BS+1)
         )
 
@@ -99,7 +99,7 @@ if uploaded_file is not None:
 
         err_noodle = err_deltaE / (S_HS*(S_HS+1))
 
-        err_yama = (2*err_deltaE) / (
+        err_yama = err_deltaE / (
             S_HS*(S_HS+1) - S_BS*(S_BS+1)
         )
 
@@ -117,6 +117,7 @@ if uploaded_file is not None:
 
         st.table(results)
 
+
         # ---------------- Formulas ----------------
         st.markdown("### Formulas used")
 
@@ -127,11 +128,12 @@ if uploaded_file is not None:
         st.latex(r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}")
 
         st.markdown("**Yamaguchi**")
-        st.latex(r"J = \frac{2(E_{BS}-E_{HS})}{\langle S^2\rangle_{HS} - \langle S^2\rangle_{BS}}")
+        st.latex(r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS} - \langle S^2\rangle_{BS}}")
 
         st.markdown("where")
 
         st.latex(r"\langle S^2\rangle = S(S+1)")
+
 
         # ---------------- Spin information ----------------
         with st.expander("Spin information"):
@@ -155,9 +157,11 @@ if uploaded_file is not None:
 
             st.table(spin_table)
 
+
         # ---------------- Show descriptors ----------------
         with st.expander("Show extracted geometric descriptors"):
             st.dataframe(X_pred)
+
 
     except ValueError as e:
         st.warning(f"⚠️ {str(e)}")
