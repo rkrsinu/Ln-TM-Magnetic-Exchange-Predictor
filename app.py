@@ -88,7 +88,7 @@ if uploaded_file is not None:
         # ---------------- Convert J ----------------
         J_noodle = deltaE / (S_HS*(S_HS+1))
 
-        J_yama = (2*deltaE) / (
+        J_yama = (deltaE) / (
             S_HS*(S_HS+1) - S_BS*(S_BS+1)
         )
 
