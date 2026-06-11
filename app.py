@@ -74,7 +74,7 @@ if uploaded_file is not None:
         tm_index = None
 
         # --------------------------------------------------
-        # Ask for indices only if needed
+        # Ask for indices only when needed
         # --------------------------------------------------
         if len(ln_atoms) > 1 or len(tm_atoms) > 1:
 
@@ -113,15 +113,13 @@ if uploaded_file is not None:
         # --------------------------------------------------
         J_ruiz, J_std = predict_J_with_uncertainty(X_pred)
 
-        err_ruiz = J_std / 2
-
-        if err_ruiz < 0.10:
-            err_ruiz = 0.10
+        err_ruiz = max(J_std / 2, 0.10)
 
         # --------------------------------------------------
         # Spins
         # --------------------------------------------------
         S_tm = float(X_pred["Spin"].values[0])
+
         S_gd = 3.5
 
         S1 = S_gd
@@ -138,15 +136,12 @@ if uploaded_file is not None:
         deltaE = J_ruiz * denom_ruiz
 
         # --------------------------------------------------
-        # Noodleman
+        # Convert J
         # --------------------------------------------------
         J_noodle = deltaE / (
             S_HS * (S_HS + 1)
         )
 
-        # --------------------------------------------------
-        # Yamaguchi
-        # --------------------------------------------------
         J_yama = deltaE / (
             S_HS * (S_HS + 1)
             - S_BS * (S_BS + 1)
@@ -195,32 +190,6 @@ if uploaded_file is not None:
             )
 
         # --------------------------------------------------
-        # Formulas
-        # --------------------------------------------------
-        st.markdown("### Formulas used")
-
-        st.markdown("**Ruiz**")
-        st.latex(
-            r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}"
-        )
-
-        st.markdown("**Noodleman**")
-        st.latex(
-            r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}"
-        )
-
-        st.markdown("**Yamaguchi**")
-        st.latex(
-            r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS}-\langle S^2\rangle_{BS}}"
-        )
-
-        st.markdown("where")
-
-        st.latex(
-            r"\langle S^2\rangle = S(S+1)"
-        )
-
-        # --------------------------------------------------
         # Spin information
         # --------------------------------------------------
         with st.expander("Spin information"):
@@ -231,14 +200,14 @@ if uploaded_file is not None:
                     "Spin(3d metal)",
                     "S_HS",
                     "S_BS",
-                    "EBS − EHS"
+                    "EBS − EHS (cm⁻¹)"
                 ],
                 "Value": [
-                    S_gd,
-                    S_tm,
-                    S_HS,
-                    S_BS,
-                    f"{deltaE:.3f} cm⁻¹"
+                    float(S_gd),
+                    float(S_tm),
+                    float(S_HS),
+                    float(S_BS),
+                    float(deltaE)
                 ]
             })
 
