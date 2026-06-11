@@ -1,6 +1,8 @@
 import streamlit as st
 import joblib
 import pandas as pd
+import numpy as np
+
 from geometry_features import extract_features
 
 
@@ -26,6 +28,21 @@ def load_model():
 
 
 model = load_model()
+
+
+# ---------------- Prediction function ----------------
+def predict_J_with_uncertainty(X):
+
+    # Prediction from every RF tree
+    tree_preds = np.array([
+        tree.predict(X)[0]
+        for tree in model.estimators_
+    ])
+
+    J_mean = tree_preds.mean()
+    J_std = tree_preds.std(ddof=1)
+
+    return J_mean, J_std
 
 
 # ---------------- File upload ----------------
@@ -61,15 +78,22 @@ if uploaded_file is not None:
 
     try:
 
-        # Extract descriptors
+        # ---------------- Extract descriptors ----------------
         X_pred = extract_features(
             "temp.xyz",
             ln_index=ln_index,
             tm_index=tm_index
         )
 
-        # Predict Ruiz J
-        J_ruiz = model.predict(X_pred)[0]
+        # ---------------- RF prediction + uncertainty ----------------
+        J_ruiz, J_std = predict_J_with_uncertainty(X_pred)
+
+        # Same philosophy as Co-SIM predictor
+        err_ruiz = J_std / 2
+
+        # Optional minimum uncertainty
+        if err_ruiz < 0.10:
+            err_ruiz = 0.10
 
         # ---------------- Spins ----------------
         S_tm = float(X_pred["Spin"].values[0])
@@ -82,58 +106,79 @@ if uploaded_file is not None:
         S_BS = abs(S1 - S2)
 
         # ---------------- Energy difference ----------------
-        denom_ruiz = 2*S1*S2 + S2
+        denom_ruiz = 2 * S1 * S2 + S2
+
         deltaE = J_ruiz * denom_ruiz
 
         # ---------------- Convert J ----------------
-        J_noodle = deltaE / (S_HS*(S_HS+1))
+        J_noodle = deltaE / (
+            S_HS * (S_HS + 1)
+        )
 
         J_yama = deltaE / (
-            S_HS*(S_HS+1) - S_BS*(S_BS+1)
+            S_HS * (S_HS + 1)
+            - S_BS * (S_BS + 1)
         )
 
         # ---------------- Error propagation ----------------
-        err_ruiz = 0.27
-
         err_deltaE = err_ruiz * denom_ruiz
 
-        err_noodle = err_deltaE / (S_HS*(S_HS+1))
-
-        err_yama = err_deltaE / (
-            S_HS*(S_HS+1) - S_BS*(S_BS+1)
+        err_noodle = err_deltaE / (
+            S_HS * (S_HS + 1)
         )
 
-        # ---------------- Results table ----------------
+        err_yama = err_deltaE / (
+            S_HS * (S_HS + 1)
+            - S_BS * (S_BS + 1)
+        )
+
+        # ---------------- Results ----------------
         results = pd.DataFrame({
-            "Method": ["Ruiz", "Noodleman", "Yamaguchi"],
+            "Method": [
+                "Ruiz",
+                "Noodleman",
+                "Yamaguchi"
+            ],
             "J (cm⁻¹)": [
-                f"{J_ruiz:.3f} ± {err_ruiz:.2f}",
-                f"{J_noodle:.3f} ± {err_noodle:.2f}",
-                f"{J_yama:.3f} ± {err_yama:.2f}"
+                f"{J_ruiz:.3f} ± {err_ruiz:.3f}",
+                f"{J_noodle:.3f} ± {err_noodle:.3f}",
+                f"{J_yama:.3f} ± {err_yama:.3f}"
             ]
         })
 
-        st.success("Exchange coupling results")
+        st.success("✅ Exchange coupling results")
 
         st.table(results)
 
+        # ---------------- Warning ----------------
+        if J_std > 1.0:
+            st.warning(
+                "⚠️ High uncertainty: molecule may be outside the training domain."
+            )
 
         # ---------------- Formulas ----------------
         st.markdown("### Formulas used")
 
         st.markdown("**Ruiz**")
-        st.latex(r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}"
+        )
 
         st.markdown("**Noodleman**")
-        st.latex(r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}"
+        )
 
         st.markdown("**Yamaguchi**")
-        st.latex(r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS} - \langle S^2\rangle_{BS}}")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS}-\langle S^2\rangle_{BS}}"
+        )
 
         st.markdown("where")
 
-        st.latex(r"\langle S^2\rangle = S(S+1)")
-
+        st.latex(
+            r"\langle S^2\rangle = S(S+1)"
+        )
 
         # ---------------- Spin information ----------------
         with st.expander("Spin information"):
@@ -157,11 +202,22 @@ if uploaded_file is not None:
 
             st.table(spin_table)
 
+        # ---------------- Model uncertainty ----------------
+        with st.expander("Model uncertainty"):
 
-        # ---------------- Show descriptors ----------------
-        with st.expander("Show extracted geometric descriptors"):
+            st.write(
+                f"Random Forest standard deviation: {J_std:.3f} cm⁻¹"
+            )
+
+            st.write(
+                f"Reported uncertainty (½σ): ±{err_ruiz:.3f} cm⁻¹"
+            )
+
+        # ---------------- Descriptors ----------------
+        with st.expander(
+            "Show extracted geometric descriptors"
+        ):
             st.dataframe(X_pred)
-
 
     except ValueError as e:
         st.warning(f"⚠️ {str(e)}")
