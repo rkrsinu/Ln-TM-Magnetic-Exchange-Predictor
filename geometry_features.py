@@ -244,3 +244,12 @@ def extract_features(xyz_file, ln_index=None, tm_index=None):
         "Tm-O1": TmO[0],
         "Tm-O2": TmO[1]
     }])
+# ---------------- Metal center detection ----------------
+def get_metal_centers(xyz_file):
+
+    atoms = read_xyz(xyz_file)
+
+    Ln_atoms = [a[0] for a in atoms if a[1] in lanthanides]
+    Tm_atoms = [a[0] for a in atoms if a[1] in transition_metals]
+
+    return Ln_atoms, Tm_atoms
