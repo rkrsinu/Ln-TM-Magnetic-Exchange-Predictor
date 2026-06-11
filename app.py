@@ -180,31 +180,32 @@ if uploaded_file is not None:
         st.success("✅ Exchange coupling results")
 
         st.table(results)
-# --------------------------------------------------
-# Formulas used
-# --------------------------------------------------
-st.markdown("### Formulas used")
+        # --------------------------------------------------
+        # Formulas used
+        # --------------------------------------------------
+        st.markdown("### Formulas used")
 
-st.markdown("**Ruiz**")
-st.latex(
-    r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}"
-)
+        st.markdown("**Ruiz**")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{2S_1S_2 + S_2}"
+        )
 
-st.markdown("**Noodleman**")
-st.latex(
-    r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}"
-)
+        st.markdown("**Noodleman**")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{S_{HS}(S_{HS}+1)}"
+        )
 
-st.markdown("**Yamaguchi**")
-st.latex(
-    r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS}-\langle S^2\rangle_{BS}}"
-)
+        st.markdown("**Yamaguchi**")
+        st.latex(
+            r"J = \frac{E_{BS}-E_{HS}}{\langle S^2\rangle_{HS}-\langle S^2\rangle_{BS}}"
+        )
 
-st.markdown("where")
+        st.markdown("where")
 
-st.latex(
-    r"\langle S^2\rangle = S(S+1)"
-)
+        st.latex(
+            r"\langle S^2\rangle = S(S+1)"
+        )
+
         # --------------------------------------------------
         # Warning
         # --------------------------------------------------
