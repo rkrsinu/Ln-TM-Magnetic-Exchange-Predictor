@@ -53,7 +53,8 @@ uploaded_file = st.file_uploader(
 
 
 # ---------------- Optional indices ----------------
-st.markdown("### Optional: Metal indices (for multinuclear systems)")
+st.caption(
+    "Select the Ln–TM pair for J calculation if multiple Ln or TM centers are present.")
 
 ln_index = st.number_input(
     "Lanthanide atom index (leave empty if only one Ln)",
