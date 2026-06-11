@@ -3,8 +3,10 @@ import joblib
 import pandas as pd
 import numpy as np
 
-from geometry_features import extract_features
-
+from geometry_features import (
+    extract_features,
+    get_metal_centers
+)
 
 # ---------------- Page setup ----------------
 st.set_page_config(
@@ -20,15 +22,12 @@ Upload a **Cartesian XYZ file**.
 This tool calculates magnetic exchange coupling **J for 3d–Gd systems**.
 """)
 
-
 # ---------------- Load ML model ----------------
 @st.cache_resource
 def load_model():
     return joblib.load("rf_model.joblib")
 
-
 model = load_model()
-
 
 # ---------------- Prediction function ----------------
 def predict_J_with_uncertainty(X):
@@ -44,26 +43,11 @@ def predict_J_with_uncertainty(X):
     return J_mean, J_std
 
 
-# ---------------- Element definitions ----------------
-LN_ELEMENTS = {
-    "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd",
-    "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"
-}
-
-TM_ELEMENTS = {
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni",
-    "Cu", "Zn", "Y", "Zr", "Nb", "Mo", "Tc", "Ru",
-    "Rh", "Pd", "Ag", "Cd", "Hf", "Ta", "W", "Re",
-    "Os", "Ir", "Pt", "Au", "Hg"
-}
-
-
 # ---------------- File upload ----------------
 uploaded_file = st.file_uploader(
     "Upload XYZ file",
     type=["xyz"]
 )
-
 
 # ---------------- Prediction ----------------
 if uploaded_file is not None:
@@ -74,28 +58,9 @@ if uploaded_file is not None:
     try:
 
         # --------------------------------------------------
-        # Detect Ln and TM centers
+        # Detect Ln/TM centers
         # --------------------------------------------------
-        with open("temp.xyz") as f:
-            xyz_lines = f.readlines()[2:]
-
-        ln_atoms = []
-        tm_atoms = []
-
-        for idx, line in enumerate(xyz_lines, start=1):
-
-            parts = line.split()
-
-            if len(parts) < 4:
-                continue
-
-            element = parts[0]
-
-            if element in LN_ELEMENTS:
-                ln_atoms.append(idx)
-
-            if element in TM_ELEMENTS:
-                tm_atoms.append(idx)
+        ln_atoms, tm_atoms = get_metal_centers("temp.xyz")
 
         if len(ln_atoms) == 0:
             st.error("No lanthanide atom detected.")
@@ -105,18 +70,13 @@ if uploaded_file is not None:
             st.error("No transition-metal atom detected.")
             st.stop()
 
-        # --------------------------------------------------
-        # Select pair only if needed
-        # --------------------------------------------------
         ln_index = None
         tm_index = None
 
-        need_selection = (
-            len(ln_atoms) > 1 or
-            len(tm_atoms) > 1
-        )
-
-        if need_selection:
+        # --------------------------------------------------
+        # Ask for indices only if needed
+        # --------------------------------------------------
+        if len(ln_atoms) > 1 or len(tm_atoms) > 1:
 
             st.info(
                 f"Detected {len(ln_atoms)} Ln center(s) and "
@@ -127,19 +87,17 @@ if uploaded_file is not None:
                 "Select the Ln–TM pair for J calculation."
             )
 
-            ln_index = st.selectbox(
-                "Lanthanide atom index",
-                ln_atoms
-            )
+            if len(ln_atoms) > 1:
+                ln_index = st.selectbox(
+                    "Lanthanide atom index",
+                    ln_atoms
+                )
 
-            tm_index = st.selectbox(
-                "Transition metal atom index",
-                tm_atoms
-            )
-
-        else:
-            ln_index = ln_atoms[0]
-            tm_index = tm_atoms[0]
+            if len(tm_atoms) > 1:
+                tm_index = st.selectbox(
+                    "Transition metal atom index",
+                    tm_atoms
+                )
 
         # --------------------------------------------------
         # Extract descriptors
@@ -180,12 +138,15 @@ if uploaded_file is not None:
         deltaE = J_ruiz * denom_ruiz
 
         # --------------------------------------------------
-        # Convert J
+        # Noodleman
         # --------------------------------------------------
         J_noodle = deltaE / (
             S_HS * (S_HS + 1)
         )
 
+        # --------------------------------------------------
+        # Yamaguchi
+        # --------------------------------------------------
         J_yama = deltaE / (
             S_HS * (S_HS + 1)
             - S_BS * (S_BS + 1)
@@ -206,7 +167,7 @@ if uploaded_file is not None:
         )
 
         # --------------------------------------------------
-        # Results
+        # Results table
         # --------------------------------------------------
         results = pd.DataFrame({
             "Method": [
@@ -310,7 +271,6 @@ if uploaded_file is not None:
     except Exception as e:
         st.error("Error processing XYZ file")
         st.exception(e)
-
 
 # ---------------- Footer ----------------
 st.markdown("---")
