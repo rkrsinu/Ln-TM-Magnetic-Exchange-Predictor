@@ -33,7 +33,6 @@ model = load_model()
 # ---------------- Prediction function ----------------
 def predict_J_with_uncertainty(X):
 
-    # Prediction from every RF tree
     tree_preds = np.array([
         tree.predict(X)[0]
         for tree in model.estimators_
@@ -45,29 +44,24 @@ def predict_J_with_uncertainty(X):
     return J_mean, J_std
 
 
+# ---------------- Element definitions ----------------
+LN_ELEMENTS = {
+    "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd",
+    "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"
+}
+
+TM_ELEMENTS = {
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni",
+    "Cu", "Zn", "Y", "Zr", "Nb", "Mo", "Tc", "Ru",
+    "Rh", "Pd", "Ag", "Cd", "Hf", "Ta", "W", "Re",
+    "Os", "Ir", "Pt", "Au", "Hg"
+}
+
+
 # ---------------- File upload ----------------
 uploaded_file = st.file_uploader(
     "Upload XYZ file",
     type=["xyz"]
-)
-
-
-# ---------------- Optional indices ----------------
-st.caption(
-    "Select the Ln–TM pair for J calculation if multiple Ln or TM centers are present.")
-
-ln_index = st.number_input(
-    "Lanthanide atom index (leave empty if only one Ln)",
-    min_value=1,
-    step=1,
-    value=None
-)
-
-tm_index = st.number_input(
-    "Transition metal atom index (leave empty if only one TM)",
-    min_value=1,
-    step=1,
-    value=None
 )
 
 
@@ -79,24 +73,96 @@ if uploaded_file is not None:
 
     try:
 
-        # ---------------- Extract descriptors ----------------
+        # --------------------------------------------------
+        # Detect Ln and TM centers
+        # --------------------------------------------------
+        with open("temp.xyz") as f:
+            xyz_lines = f.readlines()[2:]
+
+        ln_atoms = []
+        tm_atoms = []
+
+        for idx, line in enumerate(xyz_lines, start=1):
+
+            parts = line.split()
+
+            if len(parts) < 4:
+                continue
+
+            element = parts[0]
+
+            if element in LN_ELEMENTS:
+                ln_atoms.append(idx)
+
+            if element in TM_ELEMENTS:
+                tm_atoms.append(idx)
+
+        if len(ln_atoms) == 0:
+            st.error("No lanthanide atom detected.")
+            st.stop()
+
+        if len(tm_atoms) == 0:
+            st.error("No transition-metal atom detected.")
+            st.stop()
+
+        # --------------------------------------------------
+        # Select pair only if needed
+        # --------------------------------------------------
+        ln_index = None
+        tm_index = None
+
+        need_selection = (
+            len(ln_atoms) > 1 or
+            len(tm_atoms) > 1
+        )
+
+        if need_selection:
+
+            st.info(
+                f"Detected {len(ln_atoms)} Ln center(s) and "
+                f"{len(tm_atoms)} TM center(s)."
+            )
+
+            st.caption(
+                "Select the Ln–TM pair for J calculation."
+            )
+
+            ln_index = st.selectbox(
+                "Lanthanide atom index",
+                ln_atoms
+            )
+
+            tm_index = st.selectbox(
+                "Transition metal atom index",
+                tm_atoms
+            )
+
+        else:
+            ln_index = ln_atoms[0]
+            tm_index = tm_atoms[0]
+
+        # --------------------------------------------------
+        # Extract descriptors
+        # --------------------------------------------------
         X_pred = extract_features(
             "temp.xyz",
             ln_index=ln_index,
             tm_index=tm_index
         )
 
-        # ---------------- RF prediction + uncertainty ----------------
+        # --------------------------------------------------
+        # RF prediction + uncertainty
+        # --------------------------------------------------
         J_ruiz, J_std = predict_J_with_uncertainty(X_pred)
 
-        # Same philosophy as Co-SIM predictor
         err_ruiz = J_std / 2
 
-        # Optional minimum uncertainty
         if err_ruiz < 0.10:
             err_ruiz = 0.10
 
-        # ---------------- Spins ----------------
+        # --------------------------------------------------
+        # Spins
+        # --------------------------------------------------
         S_tm = float(X_pred["Spin"].values[0])
         S_gd = 3.5
 
@@ -106,12 +172,16 @@ if uploaded_file is not None:
         S_HS = S1 + S2
         S_BS = abs(S1 - S2)
 
-        # ---------------- Energy difference ----------------
+        # --------------------------------------------------
+        # Energy difference
+        # --------------------------------------------------
         denom_ruiz = 2 * S1 * S2 + S2
 
         deltaE = J_ruiz * denom_ruiz
 
-        # ---------------- Convert J ----------------
+        # --------------------------------------------------
+        # Convert J
+        # --------------------------------------------------
         J_noodle = deltaE / (
             S_HS * (S_HS + 1)
         )
@@ -121,7 +191,9 @@ if uploaded_file is not None:
             - S_BS * (S_BS + 1)
         )
 
-        # ---------------- Error propagation ----------------
+        # --------------------------------------------------
+        # Error propagation
+        # --------------------------------------------------
         err_deltaE = err_ruiz * denom_ruiz
 
         err_noodle = err_deltaE / (
@@ -133,7 +205,9 @@ if uploaded_file is not None:
             - S_BS * (S_BS + 1)
         )
 
-        # ---------------- Results ----------------
+        # --------------------------------------------------
+        # Results
+        # --------------------------------------------------
         results = pd.DataFrame({
             "Method": [
                 "Ruiz",
@@ -151,13 +225,17 @@ if uploaded_file is not None:
 
         st.table(results)
 
-        # ---------------- Warning ----------------
+        # --------------------------------------------------
+        # Warning
+        # --------------------------------------------------
         if J_std > 1.0:
             st.warning(
                 "⚠️ High uncertainty: molecule may be outside the training domain."
             )
 
-        # ---------------- Formulas ----------------
+        # --------------------------------------------------
+        # Formulas
+        # --------------------------------------------------
         st.markdown("### Formulas used")
 
         st.markdown("**Ruiz**")
@@ -181,7 +259,9 @@ if uploaded_file is not None:
             r"\langle S^2\rangle = S(S+1)"
         )
 
-        # ---------------- Spin information ----------------
+        # --------------------------------------------------
+        # Spin information
+        # --------------------------------------------------
         with st.expander("Spin information"):
 
             spin_table = pd.DataFrame({
@@ -203,7 +283,9 @@ if uploaded_file is not None:
 
             st.table(spin_table)
 
-        # ---------------- Model uncertainty ----------------
+        # --------------------------------------------------
+        # Model uncertainty
+        # --------------------------------------------------
         with st.expander("Model uncertainty"):
 
             st.write(
@@ -214,7 +296,9 @@ if uploaded_file is not None:
                 f"Reported uncertainty (½σ): ±{err_ruiz:.3f} cm⁻¹"
             )
 
-        # ---------------- Descriptors ----------------
+        # --------------------------------------------------
+        # Descriptors
+        # --------------------------------------------------
         with st.expander(
             "Show extracted geometric descriptors"
         ):
